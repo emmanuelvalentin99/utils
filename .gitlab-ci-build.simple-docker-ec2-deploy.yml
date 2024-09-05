@@ -1,0 +1,77 @@
+stages:
+  - build
+  - test
+  - terra
+  - terraform
+  - deploy
+
+build:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  variables:
+    DOCKER_CONFIG: /kaniko/.docker/
+  script:
+    - echo $PWD
+    # - cat dockerfile
+    - echo $CI_REGISTRY
+    #Autenticación en el registro de imagenes
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - cat /kaniko/.docker/config.json
+
+    #Comando de Kaniko para construir y pushear imagen
+    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/dockerfile --destination $CI_REGISTRY_IMAGE/backend-app:$CI_COMMIT_REF_SLUG
+  only:
+    - feature-ci-cd
+
+test:
+  stage: test
+  script:
+    - echo "Ejecutando pruebas..."
+
+terra:
+  stage: terra
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  variables:
+    DOCKER_CONFIG: /kaniko/.docker/
+  script:
+    - echo $PWD
+    # - cat dockerfile
+    - echo $CI_REGISTRY
+    #Autenticación en el registro de imagenes
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - cat /kaniko/.docker/config.json
+
+    #Comando de Kaniko para construir y pushear imagen
+    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/dockerfile1 --destination $CI_REGISTRY_IMAGE/ubuntu-terraform:1.0.0
+  only:
+    - feature-ci-cd
+
+terraform:
+  stage: terraform
+  image:
+    name: emmanuelv22/ubuntu-terraform:1.0.0
+  variables:
+    AWS_REGION: "us-east-1"
+    TERRAFORM_STATE_REGION: "us-east-1"
+  script:
+    - echo "ejecutando terraform"
+    - terraform --version
+    - echo "terra init"
+    - terraform init
+    - echo "terra plan"
+    - terraform plan
+    - echo "terra apply"
+    - terraform apply -auto-approve
+  only:
+    - feature-ci-cd
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Desplegando la aplicación..."
+  only:
+    - main  # Desplegar solo cuando haya cambios en la rama 'main'
